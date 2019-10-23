@@ -3,6 +3,7 @@ import argparse
 import os
 import random
 import sys
+from torch.utils.tensorboard import SummaryWriter
 
 from torch.autograd import Variable
 import numpy as np
@@ -80,8 +81,8 @@ def evaluate(config, model=None, test_loader=None):
         labels = Variable(labels, requires_grad=False)
         loss = criterion(scores, labels)
         results.append(print_eval("test", scores, labels, loss) * model_in.size(0))
-        total += model_in.size(0)
-    print("final test accuracy: {}".format(sum(results) / total))
+        total = model_in.size(0)  
+        print("final test accuracy: {}".format(sum(results) / total))
 
 def train(config):
     output_dir = os.path.dirname(os.path.abspath(config["output_file"]))
@@ -118,7 +119,8 @@ def train(config):
         shuffle=True,
         collate_fn=test_set.collate_fn)
     step_no = 0
-
+    writer = SummaryWriter()
+    
     for epoch_idx in range(config["n_epochs"]):
         for batch_idx, (model_in, labels) in enumerate(train_loader):
             model.train()
@@ -159,6 +161,7 @@ def train(config):
                 print("saving best model...")
                 max_acc = avg_acc
                 model.save(config["output_file"])
+            writer.add_scalar('Train', avg_acc, step_no)
     evaluate(config, model, test_loader)
 
 def main():
