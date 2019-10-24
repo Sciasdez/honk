@@ -120,7 +120,7 @@ def train(config):
         collate_fn=test_set.collate_fn)
     step_no = 0
     writer = SummaryWriter()
-    
+
     for epoch_idx in range(config["n_epochs"]):
         for batch_idx, (model_in, labels) in enumerate(train_loader):
             model.train()
@@ -134,13 +134,16 @@ def train(config):
             loss = criterion(scores, labels)
             loss.backward()
             optimizer.step()
+            accuracy = (torch.max(scores, 1)[1].view(labels.size(0)).data == labels.data).float().sum() / labels.size(0)
             step_no += 1
+            writer.add_scalar('train/loss', loss.item(), step_no)
+            writer.add_scalar('train/accuracy', accuracy, step_no)
             if step_no > schedule_steps[sched_idx]:
                 sched_idx += 1
                 print("changing learning rate to {}".format(config["lr"][sched_idx]))
                 optimizer = torch.optim.SGD(model.parameters(), lr=config["lr"][sched_idx],
                     nesterov=config["use_nesterov"], momentum=config["momentum"], weight_decay=config["weight_decay"])
-            print_eval("train step #{}".format(step_no), scores, labels, loss)
+            print("Training step: {}, accuracy: {:>5}, loss: {:<25}".format(str(step_no), accuracy, loss))
 
         if epoch_idx % config["dev_every"] == config["dev_every"] - 1:
             model.eval()
@@ -161,7 +164,7 @@ def train(config):
                 print("saving best model...")
                 max_acc = avg_acc
                 model.save(config["output_file"])
-            writer.add_scalar('Train', avg_acc, step_no)
+            writer.add_scalar('dev/accuracy', avg_acc, step_no)
     evaluate(config, model, test_loader)
 
 def main():
